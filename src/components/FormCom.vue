@@ -9,6 +9,7 @@
         <el-form-item prop="isRemember">
             <el-checkbox v-model="state.ruleForm.isRemember" label="记住密码" />
             <el-button type="text">忘记密码</el-button>
+            <el-button @click="loginOut" type="text">退出登录</el-button>
         </el-form-item>
         <el-form-item>
             <el-button type="primary" @click="submitForm(ruleFormRef)">
@@ -34,9 +35,27 @@ let state = reactive({
 })
 
 onMounted(() => {
-    const account = getCookie("account")
-    if (account) {
-        state.ruleForm = JSON.parse(account)
+    // const account = getCookie("account")
+    // if (account) {
+    //     state.ruleForm = JSON.parse(account)
+    // }
+    // 获取登录凭证
+    if (navigator.credentials) {
+        navigator.credentials.get({
+            password: true
+        }).then(cred => {
+            if (cred) {
+                switch (cred.type) {
+                    case 'password':
+                        // 此处为自动填充表单的代码
+                        // 开发者可以根据实际需要对账户信息进行其他处理
+                        state.ruleForm.phone = cred.id;
+                        state.ruleForm.password = cred.password;
+                        break;
+                    default: break;
+                }
+            }
+        });
     }
 
 })
@@ -65,14 +84,37 @@ const submitForm = async (formEl: FormInstance | undefined) => {
     await formEl.validate((valid) => {
         if (valid) {
             if (state.ruleForm.isRemember) {
-                setCookie("account", 1)
+                rememberPwd()
+                // setCookie("account", 1)
             } else {
-                setCookie("account", 0)
+                ElMessage.success('登录成功，没有记住密码')
+                // setCookie("account", 0)
             }
         } else {
             console.log("valid2")
         }
     })
+}
+function rememberPwd() {
+    if (navigator.credentials) {        // 生成密码凭据
+        const credential = new PasswordCredential({
+            password: state.ruleForm.password,
+            id: state.ruleForm.phone,
+        });
+        navigator.credentials.store(credential).then(() => {
+            ElMessage.success('登录成功，并记住密码')
+        });
+    }
+}
+function loginOut() {
+    // 处理登出流程
+    if (navigator.credentials.requireUserMediation) {
+        navigator.credentials.requireUserMediation();
+    }
+    // Chrome 60 + 后，requireUserMediation 被重命名为 preventSilentAccess
+    else if (navigator.credentials.preventSilentAccess) {
+        navigator.credentials.preventSilentAccess();
+    }
 }
 // 记住密码
 const setCookie = function (cname: string, exdays: number) {
